@@ -1,21 +1,9 @@
 <?php
-require_once 'auth_protect.php';
+$page_title = "Services";
+require_once 'functions.php';
+secure_session_start();
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UNIMIND — Services</title>
-
-<style>
-body {
-  margin:0;
-  font-family: Arial, sans-serif;
-  color:#f0f0f0;
-  background:#0f1724;
-}
-nav {
+<?php require_once 'components/header.php'; ?>
   background:#021526;
   display:flex;
   justify-content:space-between;

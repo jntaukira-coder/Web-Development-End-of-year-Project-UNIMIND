@@ -1,48 +1,9 @@
 <?php
-require_once 'auth_protect.php';
-
-// Additional session timeout check
-require_login_redirect();
-require_once 'db_connect.php';
+$page_title = "Hostels";
 require_once 'functions.php';
-
-// Check subscription access
-$user = get_user($_SESSION['user_id'], $pdo);
-if(!check_subscription($user, $pdo)){
-    header("Location: upgrade.php");
-    exit;
-}
+secure_session_start();
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UNIMIND — Hostels</title>
-
-<style>
-/* Base */
-body {
-  margin:0;
-  font-family: Arial, sans-serif;
-  color:#f0f0f0;
-  background: url('pictures/students-hostel-bg.jpg') no-repeat center center fixed;
-  background-size: cover;
-}
-body::before {
-  content:"";
-  position: fixed;
-  inset:0;
-  background: #021526;
-  z-index:-1;
-}
-
-/* Navigation */
-nav {
-  background:#021526;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+<?php require_once 'components/header.php'; ?>
   padding:12px 20px;
   border-radius:0 0 12px 12px;
   box-shadow:0 4px 12px rgba(0,0,0,0.5);

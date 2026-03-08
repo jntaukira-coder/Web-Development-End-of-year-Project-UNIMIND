@@ -1,1060 +1,519 @@
 <?php
-
-require_once 'functions.php';
-
-require_once 'db_connect.php';
-
-
-
-// Force session start to ensure CSRF token works
-
-if (session_status() == PHP_SESSION_NONE) {
-
-    session_start();
-
-}
-
-
-
-// Generate CSRF token immediately
-
-if (!isset($_SESSION['csrf_token'])) {
-
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-
-}
-
-
-
-$error = '';
-
-
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-
-    $username = sanitize_input($_POST['username']);
-
-    $password = $_POST['password'];
-
-    $csrf_token = $_POST['csrf_token'] ?? '';
-
-    
-
-    // Verify CSRF token
-
-    if (!verify_csrf_token($csrf_token)) {
-
-        $error = "Security token invalid. Please try again.";
-
-    } elseif (is_login_locked($username)) {
-
-        $error = "Account temporarily locked due to too many failed attempts. Please try again in 15 minutes.";
-
-    } else {
-
-        // Find user from DB
-
-        $stmt = $conn->prepare("SELECT id, username, password FROM users WHERE username = ?");
-
-        $stmt->bind_param("s", $username);
-
-        $stmt->execute();
-
-        $stmt->store_result();
-
-        $stmt->bind_result($id, $dbUsername, $dbPassword);
-
-        $stmt->fetch();
-
-
-
-        if ($stmt->num_rows > 0 && password_verify($password, $dbPassword)) {
-
-            // Successful login
-
-            clear_login_attempts($username);
-
-            $_SESSION['user_id'] = $id;
-
-            $_SESSION['username'] = $dbUsername;
-
-            $_SESSION['login_time'] = time();
-
-            
-
-            // Redirect to requested page or dashboard
-
-            $redirect_url = $_SESSION['redirect_after_login'] ?? 'Home.php';
-
-            unset($_SESSION['redirect_after_login']);
-
-            
-
-            header("Location: " . $redirect_url);
-
-            exit;
-
-        } else {
-
-            // Failed login
-
-            if (!record_login_attempt($username)) {
-
-                $error = "Account temporarily locked due to too many failed attempts. Please try again in 15 minutes.";
-
-            } else {
-
-                $error = "Invalid username or password";
-
-            }
-
-        }
-
-
-
-        $stmt->close();
-
-    }
-
-}
-
+require_once 'auth_protect.php';
 ?>
-
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
 <meta charset="UTF-8">
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>UNIMIND — Log In</title>
-
+<title>UNIMIND — Yaza Corner</title>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-
 <meta http-equiv="Pragma" content="no-cache">
-
 <meta http-equiv="Expires" content="0">
-
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
 <style>
-
 /* ===== CSS VARIABLES ===== */
-
 :root {
-
   --primary-color: #00d4ff;
-
   --secondary-color: #00ff88;
-
   --accent-color: #ff00ff;
-
   --bg-dark: #0a0a1a;
-
   --bg-medium: #1a0a2e;
-
   --bg-light: #2a0a4e;
-
   --text-primary: #ffffff;
-
   --text-secondary: #e0e0ff;
-
   --border-color: #4a00ff;
-
   --shadow-glow: rgba(0, 212, 255, 0.6);
-
   --shadow-glow-hover: rgba(0, 212, 255, 0.9);
-
   --neon-green: #00ff88;
-
   --neon-blue: #00d4ff;
-
   --neon-purple: #ff00ff;
-
   --neon-orange: #ff8800;
-
   --neon-cyan: #00ffff;
-
   --neon-pink: #ff00aa;
-
 }
-
-
 
 /* ===== BODY & BACKGROUND ===== */
-
 body {
-
   font-family: 'Roboto', sans-serif;
-
   background: #0f0f20;
-
   color: #fff;
-
   overflow-x: hidden;
-
   min-height: 100vh;
-
   position: relative;
-
 }
-
-
 
 /* Animated Background */
-
 body::before {
-
   content: '';
-
   position: fixed;
-
   top: 0;
-
   left: 0;
-
   width: 100%;
-
   height: 100%;
-
   background: 
-
     radial-gradient(ellipse at top left, rgba(0, 212, 255, 0.08) 0%, transparent 50%),
-
     radial-gradient(ellipse at bottom right, rgba(0, 255, 136, 0.08) 0%, transparent 50%),
-
     radial-gradient(ellipse at center, rgba(255, 0, 255, 0.05) 0%, transparent 60%),
-
     linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 100%);
-
   z-index: -2;
-
 }
-
-
 
 /* Subtle background animation */
-
 body::after {
-
   content: '';
-
   position: fixed;
-
   top: 0;
-
   left: 0;
-
   width: 100%;
-
   height: 100%;
-
   background: linear-gradient(45deg, 
-
     rgba(0, 212, 255, 0.02) 0%, 
-
     rgba(0, 255, 136, 0.02) 33%, 
-
     rgba(255, 0, 255, 0.02) 66%, 
-
     rgba(0, 212, 255, 0.02) 100%);
-
   animation: subtleBackgroundShift 25s ease-in-out infinite;
-
   z-index: -1;
-
 }
-
-
 
 @keyframes subtleBackgroundShift {
-
   0%, 100% { 
-
     transform: translateX(0) translateY(0);
-
     opacity: 0.3;
-
   }
-
   50% { 
-
     transform: translateX(-30px) translateY(-20px);
-
     opacity: 0.5;
-
   }
-
 }
-
-
 
 /* ===== NAVIGATION ===== */
-
 nav {
-
   display: flex;
-
   justify-content: space-between;
-
   align-items: center;
-
   padding: 1rem 3rem;
-
   position: fixed;
-
   width: 100%;
-
   top: 0;
-
   z-index: 1000;
-
   background: rgba(15,15,32,0.8);
-
   backdrop-filter: blur(10px);
-
 }
-
-
 
 nav .logo {
-
   font-family: 'Orbitron', sans-serif;
-
   font-size: 1.5rem;
-
   color: #0ff;
-
   text-shadow: 0 0 8px #0ff;
-
   cursor: pointer;
-
   text-decoration: none;
-
   transition: 0.3s;
-
 }
-
-
 
 nav .logo:hover {
-
   color: #fff;
-
   text-shadow: 0 0 15px #0ff, 0 0 25px #0ff;
-
 }
-
-
 
 nav ul {
-
   display: flex;
-
   list-style: none;
-
   gap: 2rem;
-
 }
-
-
 
 nav ul li a {
-
   text-decoration: none;
-
   color: #fff;
-
   font-weight: 500;
-
   transition: 0.3s;
-
 }
-
-
 
 nav ul li a:hover {
-
   color: #0ff;
-
   text-shadow: 0 0 10px #0ff;
-
 }
 
-
-
-/* ===== LOGIN CONTAINER ===== */
-
-.login-container {
-
+/* ===== YAZA CORNER CONTAINER ===== */
+.yaza-container {
   display: flex;
-
   align-items: center;
-
   justify-content: center;
-
   min-height: 100vh;
-
   padding: 2rem;
-
   margin-top: 80px;
-
   position: relative;
-
   z-index: 10;
-
 }
 
-
-
-/* ===== LOGIN CARD ===== */
-
-.login-card {
-
+/* ===== YAZA CORNER CARD ===== */
+.yaza-card {
   background: linear-gradient(135deg, rgba(15, 15, 32, 0.9), rgba(26, 10, 46, 0.9));
-
   border: 1px solid rgba(0, 212, 255, 0.3);
-
   border-radius: 20px;
-
   padding: 3rem;
-
   width: 100%;
-
-  max-width: 450px;
-
+  max-width: 800px;
   backdrop-filter: blur(20px);
-
   box-shadow: 
-
     0 20px 60px rgba(0, 0, 0, 0.4),
-
     0 0 0 1px rgba(0, 212, 255, 0.2),
-
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-
   position: relative;
-
   overflow: hidden;
-
 }
 
-
-
-.login-card::before {
-
+.yaza-card::before {
   content: '';
-
   position: absolute;
-
   top: 0;
-
   left: 0;
-
   width: 100%;
-
   height: 3px;
-
   background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--accent-color));
-
   transform: scaleX(0);
-
   transform-origin: left;
-
   transition: transform 0.4s ease;
-
 }
 
-
-
-.login-card:hover::before {
-
+.yaza-card:hover::before {
   transform: scaleX(1);
-
 }
 
-
-
-/* ===== LOGIN HEADER ===== */
-
-.login-header {
-
+/* ===== YAZA HEADER ===== */
+.yaza-header {
   text-align: center;
-
-  margin-bottom: 2.5rem;
-
+  margin-bottom: 3rem;
   position: relative;
-
 }
 
-
-
-.login-icon {
-
-  font-size: 3rem;
-
+.yaza-icon {
+  font-size: 4rem;
   margin-bottom: 1rem;
-
   color: var(--primary-color);
-
-  text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
-
+  text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
   animation: iconPulse 3s ease-in-out infinite;
-
 }
-
-
 
 @keyframes iconPulse {
-
   0%, 100% { transform: scale(1); opacity: 1; }
-
-  50% { transform: scale(1.05); opacity: 0.8; }
-
+  50% { transform: scale(1.1); opacity: 0.8; }
 }
 
-
-
-.login-header h1 {
-
+.yaza-header h1 {
   font-family: 'Orbitron', sans-serif;
-
-  font-size: 2.5rem;
-
+  font-size: 3rem;
   font-weight: 700;
-
   color: var(--text-primary);
-
-  margin-bottom: 0.5rem;
-
-  letter-spacing: -0.5px;
-
+  margin-bottom: 1rem;
+  letter-spacing: -1px;
   position: relative;
-
 }
 
-
-
-.login-header h1::after {
-
+.yaza-header h1::after {
   content: '';
-
   position: absolute;
-
-  bottom: -10px;
-
+  bottom: -15px;
   left: 50%;
-
   transform: translateX(-50%);
-
-  width: 60px;
-
-  height: 2px;
-
+  width: 100px;
+  height: 3px;
   background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
-
   border-radius: 2px;
-
 }
 
-
-
-.login-header p {
-
+.yaza-header p {
   color: rgba(255, 255, 255, 0.7);
-
-  font-size: 0.95rem;
-
-  line-height: 1.5;
-
-  margin-top: 1rem;
-
-}
-
-
-
-/* ===== ERROR MESSAGE ===== */
-
-.error-message {
-
-  background: rgba(255, 0, 0, 0.1);
-
-  border: 1px solid rgba(255, 0, 0, 0.3);
-
-  border-radius: 10px;
-
-  padding: 1rem;
-
-  margin-bottom: 1.5rem;
-
-  text-align: center;
-
-  color: #ff6b6b;
-
-  font-size: 0.9rem;
-
-  backdrop-filter: blur(10px);
-
-  animation: errorShake 0.5s ease-in-out;
-
-}
-
-
-
-@keyframes errorShake {
-
-  0%, 100% { transform: translateX(0); }
-
-  25% { transform: translateX(-5px); }
-
-  75% { transform: translateX(5px); }
-
-}
-
-
-
-/* ===== FORM STYLES ===== */
-
-.login-form {
-
-  display: flex;
-
-  flex-direction: column;
-
-  gap: 1.5rem;
-
-}
-
-
-
-.form-group {
-
-  position: relative;
-
-}
-
-
-
-.form-label {
-
-  display: block;
-
-  font-weight: 500;
-
-  color: var(--text-primary);
-
-  margin-bottom: 0.5rem;
-
-  font-size: 0.9rem;
-
-  letter-spacing: 0.5px;
-
-  text-transform: uppercase;
-
-}
-
-
-
-.form-input {
-
-  width: 100%;
-
-  padding: 1rem 1.25rem;
-
-  background: rgba(255, 255, 255, 0.05);
-
-  border: 1px solid rgba(0, 212, 255, 0.2);
-
-  border-radius: 10px;
-
-  color: var(--text-primary);
-
-  font-size: 1rem;
-
-  transition: all 0.3s ease;
-
-  backdrop-filter: blur(10px);
-
-}
-
-
-
-.form-input:focus {
-
-  outline: none;
-
-  border-color: var(--primary-color);
-
-  background: rgba(255, 255, 255, 0.08);
-
-  box-shadow: 
-
-    0 0 0 3px rgba(0, 212, 255, 0.1),
-
-    0 4px 20px rgba(0, 212, 255, 0.2);
-
-}
-
-
-
-.form-input::placeholder {
-
-  color: rgba(255, 255, 255, 0.4);
-
-}
-
-
-
-/* ===== BUTTON ===== */
-
-.login-btn {
-
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-
-  color: var(--text-primary);
-
-  border: none;
-
-  padding: 1rem 2rem;
-
-  border-radius: 10px;
-
-  font-weight: 600;
-
-  font-size: 1rem;
-
-  cursor: pointer;
-
-  transition: all 0.3s ease;
-
-  text-transform: uppercase;
-
-  letter-spacing: 1px;
-
-  margin-top: 1rem;
-
-  position: relative;
-
-  overflow: hidden;
-
-  box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
-
-}
-
-
-
-.login-btn:hover {
-
-  transform: translateY(-2px);
-
-  box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
-
-  background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-
-}
-
-
-
-.login-btn:active {
-
-  transform: translateY(0);
-
-}
-
-
-
-/* ===== SIGNUP LINK ===== */
-
-.signup-link {
-
-  text-align: center;
-
+  font-size: 1.1rem;
+  line-height: 1.6;
   margin-top: 2rem;
-
-  padding-top: 2rem;
-
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-
 }
 
-
-
-.signup-link p {
-
-  color: rgba(255, 255, 255, 0.7);
-
-  font-size: 0.9rem;
-
+/* ===== YAZA FEATURES ===== */
+.yaza-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
 }
 
-
-
-.signup-link a {
-
-  color: var(--primary-color);
-
-  text-decoration: none;
-
-  font-weight: 600;
-
-  transition: 0.3s ease;
-
+.yaza-feature {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 15px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
 }
 
+.yaza-feature:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary-color);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 212, 255, 0.2);
+}
 
-
-.signup-link a:hover {
-
+.yaza-feature-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
   color: var(--secondary-color);
-
-  text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
-
+  text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
 }
 
+.yaza-feature h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
 
+.yaza-feature p {
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+}
+
+/* ===== YAZA CONTENT ===== */
+.yaza-content {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 15px;
+  padding: 2.5rem;
+  margin-bottom: 2rem;
+}
+
+.yaza-content h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.yaza-content p {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.yaza-content ul {
+  list-style: none;
+  padding: 0;
+}
+
+.yaza-content li {
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+  padding-left: 2rem;
+  position: relative;
+}
+
+.yaza-content li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--secondary-color);
+  font-weight: bold;
+}
+
+/* ===== YAZA ACTIONS ===== */
+.yaza-actions {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.yaza-btn {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: var(--text-primary);
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-decoration: none;
+  display: inline-block;
+  box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+}
+
+.yaza-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+  background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+}
+
+.yaza-btn-secondary {
+  background: transparent;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  box-shadow: none;
+}
+
+.yaza-btn-secondary:hover {
+  background: var(--primary-color);
+  color: var(--text-primary);
+}
 
 /* ===== RESPONSIVE ===== */
-
 @media (max-width: 768px) {
-
   nav {
-
     padding: 1rem 1.5rem;
-
   }
-
   
-
   nav ul {
-
     display: none;
-
   }
-
   
-
-  .login-container {
-
+  .yaza-container {
     padding: 1rem;
-
     margin-top: 100px;
-
   }
-
   
-
-  .login-card {
-
+  .yaza-card {
     padding: 2rem;
-
     max-width: 100%;
-
   }
-
   
-
-  .login-header h1 {
-
+  .yaza-header h1 {
     font-size: 2rem;
-
   }
-
+  
+  .yaza-features {
+    grid-template-columns: 1fr;
+  }
+  
+  .yaza-actions {
+    flex-direction: column;
+    align-items: center;
+  }
 }
-
-
 
 /* ===== FLOATING PARTICLES ===== */
-
 .particles-container {
-
   position: fixed;
-
   top: 0;
-
   left: 0;
-
   width: 100%;
-
   height: 100%;
-
   overflow: hidden;
-
   z-index: 0;
-
   pointer-events: none;
-
 }
-
-
 
 .particle {
-
   position: absolute;
-
   background: var(--primary-color);
-
   width: 4px;
-
   height: 4px;
-
   border-radius: 50%;
-
   opacity: 0.6;
-
   animation: floatParticle 8s linear infinite;
-
 }
-
-
 
 @keyframes floatParticle {
-
   0% { transform: translateY(100vh) translateX(0); opacity: 0; }
-
   10% { opacity: 1; }
-
   90% { opacity: 1; }
-
   100% { transform: translateY(-10vh) translateX(20px); opacity: 0; }
-
 }
-
 </style>
-
 </head>
-
 <body>
 
-
-
 <!-- Floating Particles -->
-
 <div class="particles-container">
-
   <div class="particle"></div>
-
   <div class="particle"></div>
-
   <div class="particle"></div>
-
   <div class="particle"></div>
-
   <div class="particle"></div>
-
 </div>
-
-
 
 <!-- Navigation -->
-
 <nav>
-
   <a href="index.php" class="logo">UNIMIND</a>
-
   <ul>
-
     <li><a href="index.php">Home</a></li>
-
-    <li><a href="signup_form.php">Sign Up</a></li>
-
+    <li><a href="Accomodation.php">Accommodation</a></li>
+    <li><a href="services.php">Services</a></li>
+    <li><a href="campus life.php">Campus Life</a></li>
+    <li><a href="campus_map.php">Campus Map</a></li>
+    <li><a href="opportunities.php">Opportunities</a></li>
+    <li><a href="yaza_corner.php" style="color: var(--secondary-color);">Yaza Corner</a></li>
+    <li><a href="Home.php">Dashboard</a></li>
+    <li><a href="logout.php">Logout</a></li>
   </ul>
-
 </nav>
 
-
-
-<!-- Login Container -->
-
-<div class="login-container">
-
-  <div class="login-card">
-
-    <div class="login-header">
-
-      <div class="login-icon">L</div>
-
-      <h1>Welcome Back</h1>
-
-      <p>Log in to your UNIMIND account</p>
-
+<!-- Yaza Corner Container -->
+<div class="yaza-container">
+  <div class="yaza-card">
+    <div class="yaza-header">
+      <div class="yaza-icon">Y</div>
+      <h1>Yaza Corner</h1>
+      <p>Your exclusive space for relaxation, creativity, and personal growth</p>
     </div>
 
-
-
-    <?php if (!empty($error)) { echo "<div class='error-message'>$error</div>"; } ?>
-
-    
-
-    <form action="login.php" method="POST" class="login-form">
-
-      <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
-
-      
-
-      <div class="form-group">
-
-        <label for="username" class="form-label">Username</label>
-
-        <input type="text" id="username" name="username" class="form-input" placeholder="Enter your username" required>
-
+    <div class="yaza-features">
+      <div class="yaza-feature">
+        <div class="yaza-feature-icon">🎨</div>
+        <h3>Creative Hub</h3>
+        <p>Express yourself through art, music, and creative writing in our dedicated creative spaces</p>
       </div>
-
       
-
-      <div class="form-group">
-
-        <label for="password" class="form-label">Password</label>
-
-        <input type="password" id="password" name="password" class="form-input" placeholder="Enter your password" required>
-
+      <div class="yaza-feature">
+        <div class="yaza-feature-icon">🧘</div>
+        <h3>Wellness Zone</h3>
+        <p>Meditation, yoga, and mindfulness activities to help you stay balanced and focused</p>
       </div>
-
       
-
-      <button type="submit" class="login-btn">Log In</button>
-
-    </form>
-
-    
-
-    <div class="signup-link">
-
-      <p>Don't have an account? <a href="signup_form.php">Sign Up</a></p>
-
+      <div class="yaza-feature">
+        <div class="yaza-feature-icon">📚</div>
+        <h3>Study Lounge</h3>
+        <p>Quiet, comfortable spaces designed for optimal studying and group collaboration</p>
+      </div>
     </div>
 
+    <div class="yaza-content">
+      <h2>Welcome to Your Personal Sanctuary</h2>
+      <p>Yaza Corner is more than just a space – it's your personal retreat within the bustling campus life. Here, you can unwind, recharge, and connect with like-minded students who share your interests.</p>
+      
+      <h2>What's Available</h2>
+      <ul>
+        <li>Comfortable seating areas with charging stations</li>
+        <li>High-speed WiFi and computer workstations</li>
+        <li>Art supplies and creative materials</li>
+        <li>Quiet study rooms and collaboration spaces</li>
+        <li>Wellness activities and meditation sessions</li>
+        <li>Student-led workshops and events</li>
+        <li>Refreshment corner with healthy snacks</li>
+      </ul>
+    </div>
+
+    <div class="yaza-actions">
+      <a href="#" class="yaza-btn">Reserve Space</a>
+      <a href="#" class="yaza-btn yaza-btn-secondary">View Schedule</a>
+    </div>
   </div>
-
 </div>
 
-
-
 <script>
-
 // Particles randomization
-
 const particles = document.querySelectorAll('.particle');
-
 particles.forEach(p => {
-
   p.style.left = Math.random() * 100 + 'vw';
-
   p.style.animationDelay = Math.random() * 5 + 's';
-
   p.style.width = p.style.height = (Math.random() * 4 + 2) + 'px';
-
 });
-
 </script>
 
-
-
 </body>
-
 </html>
-

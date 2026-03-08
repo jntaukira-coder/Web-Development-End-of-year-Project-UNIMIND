@@ -1,12 +1,24 @@
 <?php
-include 'db_connect.php';
+include 'db.php'; // Use the same database connection
 session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Ensure user is logged in 
-if (!isset($_SESSION['user'])) {
-    die('User not logged in. Please log in to access this page.');
+if (!isset($_SESSION['user_id'])) {
+    // Redirect to login page
+    header("Location: login.php");
+    exit();
+}
+
+// Get user info
+$stmt = $pdo->prepare("SELECT * FROM users WHERE id=?");
+$stmt->execute([$_SESSION['user_id']]);
+$user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if(!$user) {
+    header("Location: login.php");
+    exit();
 }
 
 // Handle form submission 
@@ -15,11 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_session'])) {
     $duration = (int)$_POST['duration']; 
     $date = date('Y-m-d');
 
-    $stmt = $conn->prepare("INSERT INTO sessions (username, subject, study_date, duration_minutes) VALUES (?, ?, ?, ?)");
-    if (!$stmt) { die("Prepare failed: " . $conn->error); }
-    $stmt->bind_param("sssi", $_SESSION['user'], $subject, $date, $duration);
-    $stmt->execute();
-    $stmt->close();
+    $stmt = $pdo->prepare("INSERT INTO sessions (username, subject, study_date, duration_minutes) VALUES (?, ?, ?, ?)");
+    if (!$stmt) { die("Prepare failed: " . $pdo->error); }
+    $stmt->execute([$user['email'], $subject, $date, $duration]);
 
     // Redirect to prevent resubmission
     header("Location: focus.php");
@@ -27,14 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_session'])) {
 }
 
 //Fetch all study dates for streak
-$stmt = $conn->prepare("SELECT study_date FROM sessions WHERE username=? ORDER BY study_date DESC");
-if (!$stmt) { die("Prepare failed: " . $conn->error); }
-$stmt->bind_param("s", $_SESSION['user']);
-$stmt->execute();
-$stmt->bind_result($study_date);
-$dates = [];
-while ($stmt->fetch()) { $dates[] = $study_date; }
-$stmt->close();
+$stmt = $pdo->prepare("SELECT study_date FROM sessions WHERE username=? ORDER BY study_date DESC");
+if (!$stmt) { die("Prepare failed: " . $pdo->error); }
+$stmt->execute([$user['email']]);
+$dates = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 // Calculate streak
 $streak = 0;
@@ -55,43 +61,598 @@ foreach ($dates as $d) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UNIMIND — Focus Zone</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://in.paychangu.com/js/popup.js"></script>
 <style>
-body { margin:0; font-family: 'Poppins', Arial, sans-serif; background:#0f1724; color:#f0f0f0; overflow-x:hidden; position:relative; }
-body::before { content:""; position:fixed; inset:0; background: linear-gradient(180deg, rgba(0,50,100,0.6), rgba(0,30,60,0.8)); z-index:-1; }
-.navbar { position:fixed; top:0; left:0; right:0; background:#021526; display:flex; justify-content:space-between; align-items:center; padding:15px 40px; box-shadow:0 4px 10px rgba(0,0,0,0.5); z-index:1000; border-radius:0 0 12px 12px; }
-.navbar .logo { color:#38bdf8; font-size:1.5em; font-weight:bold; letter-spacing:1px; }
-.navbar ul { list-style:none; margin:0; padding:0; display:flex; gap:25px; }
-.navbar a { color:#f0f0f0; text-decoration:none; font-weight:500; transition:color 0.3s; }
-.navbar a:hover { color:#56ccf2; }
-.container { max-width:800px; margin:120px auto 40px; padding:20px; }
-.card { background:#1a2236; padding:30px; border-radius:12px; margin-bottom:20px; box-shadow:0 0 25px rgba(0,0,0,0.5); transition:0.3s; }
-.card:hover { transform:scale(1.02); box-shadow:0 0 35px rgba(56,189,248,0.7); }
-h1,h2 { color:#38bdf8; margin-top:0; }
-.card:first-of-type { min-height:350px; }
-.time { font-size:80px; text-align:center; margin:20px 0; font-weight:bold; color:#fff; transition:1s; }
-button { margin:5px; padding:10px 15px; border:none; border-radius:6px; cursor:pointer; background:#38bdf8; color:#021526; font-weight:bold; transition:0.3s; }
-button:hover { background:#56ccf2; transform:scale(1.05); }
-input[type=text], select { width:100%; padding:10px; margin:5px 0; border-radius:6px; border:1px solid #333; background:#0f1724; color:#fff; }
-footer { text-align:center; color:#aaa; margin-top:30px; font-size:0.9em; }
-.embed-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius:12px; box-shadow:0 6px 25px rgba(0,0,0,0.45); margin-bottom:20px; }
-.embed-container iframe { position: absolute; top:0; left:0; width:100%; height:100%; border:0; }
-/* Notification style */
-#notification { color:#38bdf8; font-weight:bold; margin-top:10px; display:none; text-align:center; }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #0f0f20;
+    color: #ffffff;
+    line-height: 1.6;
+    scroll-behavior: smooth;
+}
+
+.app-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 280px;
+    background: linear-gradient(180deg, #1a0a2e 0%, #2a0a4e 100%);
+    color: white;
+    padding: 2rem 0;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.logo-section {
+    padding: 0 2rem 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 2rem;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #00d4ff;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.user-profile {
+    padding: 0 2rem 2rem;
+    margin-bottom: 2rem;
+}
+
+.user-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #00d4ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 1.125rem;
+}
+
+.user-info {
+    margin-top: 1rem;
+}
+
+.user-name {
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 0.25rem;
+}
+
+.user-status {
+    font-size: 0.875rem;
+    color: #e0e0ff;
+    background: rgba(0, 212, 255, 0.1);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+.sidebar-nav {
+    padding: 0 1rem;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    color: #e0e0ff;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    margin-bottom: 0.5rem;
+}
+
+.nav-item:hover {
+    background: rgba(0, 212, 255, 0.1);
+    color: white;
+}
+
+.nav-item.active {
+    background: #00d4ff;
+    color: white;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+}
+
+/* Main Content */
+.main-content {
+    flex: 1;
+    margin-left: 280px;
+    padding: 2rem;
+    background: #0f0f20;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.card {
+    background: linear-gradient(135deg, #1a0a2e, #2a0a4e);
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.5);
+    transition: 0.3s;
+    border: 1px solid #4a00ff;
+}
+
+.card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 35px rgba(56, 189, 248, 0.7);
+}
+
+h1, h2 {
+    color: #00d4ff;
+    margin-top: 0;
+}
+
+.card:first-of-type {
+    min-height: 350px;
+}
+
+.time {
+    font-size: 80px;
+    text-align: center;
+    margin: 20px 0;
+    font-weight: bold;
+    color: #fff;
+    transition: 1s;
+}
+
+button {
+    margin: 5px;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #00d4ff;
+    color: #021526;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #00a8cc;
+    transform: scale(1.05);
+}
+
+input[type=text], select {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #0f1724;
+    color: #fff;
+}
+
+.embed-container {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.45);
+    margin-bottom: 20px;
+}
+
+.embed-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+/* Focus Modes */
+.focus-modes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.mode-btn {
+    background: linear-gradient(135deg, #1a0a2e, #2a0a4e);
+    border: 1px solid #4a00ff;
+    color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    font-weight: 600;
+}
+
+.mode-btn:hover {
+    background: rgba(0, 212, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+}
+
+.mode-btn.active {
+    background: #00d4ff;
+    color: #021526;
+}
+
+.mode-btn i {
+    display: block;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.mode-btn small {
+    display: block;
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-top: 0.25rem;
+}
+
+/* Session Goal */
+.goal-status {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 8px;
+    border: 1px solid #4a00ff;
+}
+
+.goal-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.complete-btn {
+    background: #00ff88;
+    color: #021526;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.incomplete-btn {
+    background: #ff8800;
+    color: #ffffff;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+/* Timer Display */
+.timer-display {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.session-info {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: #e0e0ff;
+}
+
+.timer-controls {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.timer-controls button {
+    padding: 1rem;
+    font-size: 0.875rem;
+}
+
+.focus-reminder {
+    background: rgba(255, 136, 0, 0.1);
+    border: 1px solid #ff8800;
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+    margin-top: 1.5rem;
+    color: #ff8800;
+    font-weight: 500;
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #1a0a2e, #2a0a4e);
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid #4a00ff;
+}
+
+.stat-card h3 {
+    color: #00d4ff;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: #e0e0ff;
+    opacity: 0.8;
+}
+
+/* Progress Ring */
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.progress-ring {
+    position: relative;
+    width: 200px;
+    height: 200px;
+}
+
+.progress-svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+}
+
+.progress-bg {
+    fill: none;
+    stroke: rgba(0, 212, 255, 0.1);
+    stroke-width: 8;
+}
+
+.progress-bar {
+    fill: none;
+    stroke: #00d4ff;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.progress-percentage {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #00d4ff;
+    display: block;
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.8);
+}
+
+.progress-label {
+    font-size: 0.875rem;
+    color: #e0e0ff;
+    margin-top: 0.25rem;
+}
+
+.progress-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.mini-stat {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 8px;
+    border: 1px solid #4a00ff;
+}
+
+.mini-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 0.25rem;
+}
+
+.mini-label {
+    font-size: 0.75rem;
+    color: #e0e0ff;
+    opacity: 0.8;
+}
+
+/* Full Screen Progress Overlay */
+.progress-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+}
+
+.progress-overlay.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlay-progress {
+    width: 300px;
+    height: 300px;
+    position: relative;
+}
+
+.overlay-percentage {
+    font-size: 4rem;
+    font-weight: 700;
+    color: #00d4ff;
+    text-align: center;
+    margin-bottom: 1rem;
+    text-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+}
+
+.overlay-label {
+    font-size: 1.25rem;
+    color: #ffffff;
+    text-align: center;
+    opacity: 0.9;
+}
+
+.overlay-timer {
+    font-size: 2rem;
+    color: #e0e0ff;
+    text-align: center;
+    font-weight: 300;
+}
+
+/* Daily Target */
+.target-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.target-display {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.target-label {
+    font-size: 0.875rem;
+    color: #e0e0ff;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.target-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #00d4ff;
+    margin-bottom: 0.5rem;
+}
+
+.target-progress {
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.target-bar {
+    background: rgba(0, 212, 255, 0.2);
+    border-radius: 8px;
+    height: 12px;
+    overflow: hidden;
+}
+
+.target-fill {
+    background: linear-gradient(90deg, #00d4ff, #00ff88);
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.5s ease;
+}
+
+.target-status {
+    text-align: center;
+    font-size: 0.875rem;
+    color: #e0e0ff;
+    font-weight: 500;
+}
 </style>
 </head>
 <body>
 
-<nav class="navbar">
-  <div class="logo">UNIMIND</div>
-  <ul>
-     <a href="Home.php">Home</a>
-    <a href="aboutme.php">Discover Yourself</a>
-    <a href="focus.php" style="color:#38bdf8;">Focus Zone</a>
-    <li><a href="logout.php">Logout</a></li>
-  </ul>
-</nav>
+<div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-section">
+            <div class="logo">
+                <i class="fas fa-graduation-cap"></i>
+                UNIMIND
+            </div>
+        </div>
+        
+        <div class="user-profile">
+            <div class="user-avatar">
+                <?php echo isset($user['fullname']) ? substr($user['fullname'], 0, 1) : 'U'; ?>
+            </div>
+            <div class="user-info">
+                <div class="user-name"><?php echo isset($user['fullname']) ? htmlspecialchars($user['fullname']) : 'Student'; ?></div>
+                <div class="user-status">Focus Mode</div>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="Home.php" class="nav-item">
+                <i class="fas fa-home"></i>
+                Dashboard
+            </a>
+            <a href="aboutme.php" class="nav-item">
+                <i class="fas fa-user"></i>
+                Discover Yourself
+            </a>
+            <a href="focus.php" class="nav-item active">
+                <i class="fas fa-brain"></i>
+                Focus Zone
+            </a>
+            <a href="login.php" class="nav-item">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+            </a>
+        </nav>
+    </aside>
 
-<div class="container">
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
 
 <!-- FORM for saving sessions -->
 <form method="POST" id="sessionForm">
@@ -100,24 +661,152 @@ footer { text-align:center; color:#aaa; margin-top:30px; font-size:0.9em; }
   <input type="hidden" name="save_session" value="1">
 </form>
 
+<!-- Focus Modes Card -->
+<div class="card">
+    <h2>Choose Focus Mode</h2>
+    <div class="focus-modes">
+        <button type="button" class="mode-btn" onclick="setFocusMode('deep')" data-mode="deep">
+            <i class="fas fa-brain"></i>
+            Deep Study
+            <small>50 min focus / 10 min break</small>
+        </button>
+        <button type="button" class="mode-btn" onclick="setFocusMode('pomodoro')" data-mode="pomodoro">
+            <i class="fas fa-clock"></i>
+            Quick Revision
+            <small>25 min / 5 min break</small>
+        </button>
+        <button type="button" class="mode-btn" onclick="setFocusMode('assignment')" data-mode="assignment">
+            <i class="fas fa-pen"></i>
+            Assignment Mode
+            <small>90 min / 15 min break</small>
+        </button>
+        <button type="button" class="mode-btn" onclick="setFocusMode('exam')" data-mode="exam">
+            <i class="fas fa-graduation-cap"></i>
+            Exam Prep
+            <small>60 min / 10 min break</small>
+        </button>
+    </div>
+</div>
+
+<!-- Session Goal Card -->
+<div class="card">
+    <h2>Session Goal</h2>
+    <input type="text" id="sessionGoal" placeholder="What will you complete in this session?" maxlength="100">
+    <div class="goal-status" id="goalStatus">
+        <span id="goalText">Set your goal above</span>
+        <div class="goal-buttons" id="goalButtons" style="display: none;">
+            <button type="button" onclick="markGoalComplete(true)" class="complete-btn">
+                <i class="fas fa-check"></i> Yes, Completed!
+            </button>
+            <button type="button" onclick="markGoalComplete(false)" class="incomplete-btn">
+                <i class="fas fa-times"></i> Not Yet
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Focus Timer Card -->
 <div class="card">
-  <h1>Focus Timer</h1>
-  <input type="text" id="task" placeholder="What are you focusing on?">
-  <select id="duration">
-    <option value="25">25 min</option>
-    <option value="45">45 min</option>
-    <option value="90">90 min</option>
-  </select>
-  <div class="time" id="display">25:00</div>
-  <div>
-    <button type="button" onclick="startTimer()">Start</button>
-    <button type="button" onclick="pauseTimer()">Pause</button>
-    <button type="button" onclick="resetTimer()">Reset</button>
-    <button type="button" onclick="saveSession()">Save Session</button>
-  </div>
-  <div id="notification">Session saved!</div>
-  <div class="stat">Streak: <span id="streak"><?php echo $streak; ?></span> days</div>
+    <h1>Focus Timer</h1>
+    <div class="timer-display">
+        <div class="time" id="display">25:00</div>
+        <div class="session-info">
+            <span id="currentMode">Quick Revision</span>
+            <span id="sessionCount">Session 1</span>
+        </div>
+    </div>
+    <div class="timer-controls">
+        <button type="button" id="startBtn" onclick="startTimer()">
+            <i class="fas fa-play"></i> Start
+        </button>
+        <button type="button" id="pauseBtn" onclick="pauseTimer()">
+            <i class="fas fa-pause"></i> Pause
+        </button>
+        <button type="button" onclick="resetTimer()">
+            <i class="fas fa-redo"></i> Reset
+        </button>
+        <button type="button" onclick="saveSession()">
+            <i class="fas fa-save"></i> Save Session
+        </button>
+    </div>
+    <div class="focus-reminder" id="focusReminder">
+        <i class="fas fa-bell"></i>
+        <span>Focus Zone Active - Put your phone away and close social media</span>
+    </div>
+    <div id="notification">Session saved!</div>
+    <div class="stats-row">
+        <div class="stat-card">
+            <h3>Focus Streak</h3>
+            <div class="stat-value" id="streak"><?php echo $streak; ?></div>
+            <div class="stat-label">days</div>
+        </div>
+        <div class="stat-card">
+            <h3>Today's Focus</h3>
+            <div class="stat-value" id="todayFocus">0h 0m</div>
+            <div class="stat-label">total time</div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Ring Card -->
+<div class="card">
+    <h2>Focus Progress</h2>
+    <div class="progress-container">
+        <div class="progress-ring">
+            <svg class="progress-svg" width="120" height="120">
+                <circle class="progress-bg" cx="60" cy="60" r="54"></circle>
+                <circle class="progress-bar" id="progressRing" cx="60" cy="60" r="54"></circle>
+            </svg>
+            <div class="progress-text">
+                <div class="progress-percentage" id="progressPercentage">0%</div>
+                <div class="progress-label">Focus Time</div>
+            </div>
+        </div>
+        <div class="progress-stats">
+            <div class="mini-stat">
+                <div class="mini-value" id="sessionsToday">0</div>
+                <div class="mini-label">Sessions Today</div>
+            </div>
+            <div class="mini-stat">
+                <div class="mini-value" id="avgFocusTime">0m</div>
+                <div class="mini-label">Avg Session</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Target Card -->
+<div class="card">
+    <h2>Daily Focus Target</h2>
+    <div class="target-container">
+        <div class="target-display">
+            <div class="target-label">Today's Goal</div>
+            <div class="target-value">
+                <span id="targetHours">2</span>h <span id="targetMinutes">0</span>m
+            </div>
+        </div>
+        <div class="target-progress">
+            <div class="target-bar">
+                <div class="target-fill" id="targetFill" style="width: 0%"></div>
+            </div>
+            <div class="target-status" id="targetStatus">0h 0m completed</div>
+        </div>
+    </div>
+</div>
+
+<!-- Full Screen Progress Overlay -->
+<div class="progress-overlay" id="progressOverlay">
+    <div class="overlay-content">
+        <div class="overlay-progress">
+            <svg class="overlay-svg" width="120" height="120">
+                <circle class="progress-bg" cx="60" cy="60" r="54"></circle>
+                <circle class="progress-bar" id="overlayProgressRing" cx="60" cy="60" r="54"></circle>
+            </svg>
+            <div class="overlay-percentage" id="overlayPercentage">0%</div>
+        </div>
+        <div class="overlay-label">Focus Time</div>
+        <div class="overlay-timer" id="overlayTimer">25:00</div>
+    </div>
 </div>
 
 <!-- Study Music Card -->
@@ -136,81 +825,252 @@ footer { text-align:center; color:#aaa; margin-top:30px; font-size:0.9em; }
     <li>Drink water frequently</li>
     <li>Do stretching exercises</li>
     <li>Listen to calming music</li>
+    <li>Take breaks to meditate</li>
+    <li>Avoid screens before bedtime</li>
   </ul>
 </div>
 
-<footer>UniMind © 2025 | Focus Zone</footer>
+<footer>UniMind &copy; 2025 | Focus Zone</footer>
 </div>
 
 <script>
-// Timer
+// Focus modes configuration
+const focusModes = {
+    deep: { duration: 50, breakTime: 10, name: 'Deep Study' },
+    pomodoro: { duration: 25, breakTime: 5, name: 'Quick Revision' },
+    assignment: { duration: 90, breakTime: 15, name: 'Assignment Mode' },
+    exam: { duration: 60, breakTime: 10, name: 'Exam Prep' }
+};
+
+let currentMode = 'pomodoro';
 let timer = null;
-let seconds = parseInt(document.getElementById('duration').value) * 60;
+let seconds = 25 * 60; // Default to pomodoro
+let sessionCount = 1;
+let todayFocusTime = 0;
+let goalCompleted = false;
 const notification = document.getElementById('notification');
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    setFocusMode('pomodoro'); // Set default mode
+    updateTodayStats();
+});
+
+// Set focus mode
+function setFocusMode(mode) {
+    currentMode = mode;
+    const modeConfig = focusModes[mode];
+    
+    // Update UI
+    document.getElementById('currentMode').textContent = modeConfig.name;
+    document.getElementById('display').textContent = formatTime(modeConfig.duration * 60);
+    seconds = modeConfig.duration * 60;
+    
+    // Update button states
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.mode === mode) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Reset timer if running
+    if (timer) {
+        pauseTimer();
+    }
+}
 
 // Format time as MM:SS
 function formatTime(s) {
-    let m = Math.floor(s / 60).toString().padStart(2,'0');
-    let sec = (s % 60).toString().padStart(2,'0');
+    let m = Math.floor(s / 60).toString().padStart(2, '0');
+    let sec = (s % 60).toString().padStart(2, '0');
     return m + ':' + sec;
 }
 
-// Show subtle notification
+// Show notification
 function showNotification(message) {
-    notification.innerText = message;
+    notification.textContent = message;
     notification.style.display = 'block';
     setTimeout(() => { notification.style.display = 'none'; }, 3000);
 }
 
 // Start timer
 function startTimer() {
-    if(timer) return;
+    if (timer) return;
+    
+    // Show full-screen progress overlay
+    document.getElementById('progressOverlay').classList.add('active');
+    
+    // Show goal buttons
+    const goalText = document.getElementById('sessionGoal').value;
+    if (goalText) {
+        document.getElementById('goalButtons').style.display = 'flex';
+        document.getElementById('goalText').textContent = 'Working on: ' + goalText;
+    }
+    
+    // Show focus reminder
+    document.getElementById('focusReminder').style.display = 'block';
+    
     timer = setInterval(() => {
         seconds--;
-        document.getElementById('display').innerText = formatTime(seconds);
+        document.getElementById('display').textContent = formatTime(seconds);
+        todayFocusTime++; // Track today's focus time
+        updateProgressRing(); // Update full-screen progress
 
-        if(seconds <= 0) {
+        if (seconds <= 0) {
             clearInterval(timer);
             timer = null;
-            seconds = parseInt(document.getElementById('duration').value) * 60;
-            document.getElementById('display').innerText = formatTime(seconds);
-            saveSession(true); 
+            
+            // Auto-save session
+            saveSession(true);
+            
+            // Show goal completion
+            if (goalText) {
+                document.getElementById('goalButtons').style.display = 'flex';
+            }
         }
     }, 1000);
+    
+    // Update button states
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('pauseBtn').style.display = 'inline-block';
 }
 
 // Pause timer
 function pauseTimer() {
+    if (!timer) return;
+    
     clearInterval(timer);
     timer = null;
+    
+    // Hide full-screen progress overlay
+    document.getElementById('progressOverlay').classList.remove('active');
+    
+    // Update button states
+    document.getElementById('startBtn').style.display = 'inline-block';
+    document.getElementById('pauseBtn').style.display = 'none';
 }
 
 // Reset timer
 function resetTimer() {
     clearInterval(timer);
     timer = null;
-    seconds = parseInt(document.getElementById('duration').value) * 60;
-    document.getElementById('display').innerText = formatTime(seconds);
+    
+    // Hide full-screen progress overlay
+    document.getElementById('progressOverlay').classList.remove('active');
+    
+    const modeConfig = focusModes[currentMode];
+    seconds = modeConfig.duration * 60;
+    document.getElementById('display').textContent = formatTime(seconds);
+    
+    // Update button states
+    document.getElementById('startBtn').style.display = 'inline-block';
+    document.getElementById('pauseBtn').style.display = 'none';
+    
+    // Reset goal
+    document.getElementById('goalButtons').style.display = 'none';
+    document.getElementById('goalText').textContent = 'Set your goal above';
+}
+
+// Mark goal completion
+function markGoalComplete(completed) {
+    goalCompleted = completed;
+    const statusText = completed ? ' Goal Completed!' : ' Still working on it...';
+    document.getElementById('goalText').textContent = statusText;
+    
+    // Hide buttons after marking
+    setTimeout(() => {
+        document.getElementById('goalButtons').style.display = 'none';
+    }, 2000);
 }
 
 // Save session
 function saveSession(autoSaved = false) {
-    const taskInput = document.getElementById('task').value || 'No Task';
-    document.getElementById('formSubject').value = taskInput;
-    document.getElementById('formDuration').value = parseInt(document.getElementById('duration').value);
+    const goalText = document.getElementById('sessionGoal').value || 'No specific goal';
+    const modeConfig = focusModes[currentMode];
+    
+    // Hide full-screen progress overlay
+    document.getElementById('progressOverlay').classList.remove('active');
+    
+    // Update session count
+    sessionCount++;
+    document.getElementById('sessionCount').textContent = 'Session ' + sessionCount;
+    
+    // Update today's stats
+    updateTodayStats();
+    
+    // Prepare form data
+    document.getElementById('formSubject').value = `${modeConfig.name}: ${goalText}`;
+    document.getElementById('formDuration').value = modeConfig.duration;
     document.getElementById('sessionForm').submit();
-
-    if(autoSaved) {
-        showNotification("Session auto-saved!");
-    } else {
-        showNotification("Session saved!");
-    }
+    
+    // Show notification
+    const message = autoSaved ? 'Session auto-saved!' : 'Session saved!';
+    showNotification(message);
+    
+    // Hide focus reminder
+    document.getElementById('focusReminder').style.display = 'none';
 }
 
-// Update timer if user changes duration
-document.getElementById('duration').addEventListener('change', () => {
-    seconds = parseInt(document.getElementById('duration').value) * 60;
-    document.getElementById('display').innerText = formatTime(seconds);
+// Update today's focus statistics
+function updateTodayStats() {
+    const hours = Math.floor(todayFocusTime / 3600);
+    const minutes = Math.floor((todayFocusTime % 3600) / 60);
+    document.getElementById('todayFocus').textContent = `${hours}h ${minutes}m`;
+    
+    // Update progress ring
+    updateProgressRing();
+    
+    // Update daily target
+    updateDailyTarget();
+}
+
+// Update progress ring
+function updateProgressRing() {
+    const modeConfig = focusModes[currentMode];
+    const progress = ((modeConfig.duration * 60 - seconds) / (modeConfig.duration * 60)) * 100;
+    const percentage = Math.round(progress);
+    
+    document.getElementById('progressPercentage').textContent = `${percentage}%`;
+    
+    // Update SVG circle
+    const circle = document.getElementById('progressRing');
+    const circumference = 2 * Math.PI * 54;
+    const offset = circumference - (percentage / 100) * circumference;
+    
+    circle.style.strokeDasharray = `${circumference} ${circumference}`;
+    circle.style.strokeDashoffset = offset;
+}
+
+// Update daily target
+function updateDailyTarget() {
+    const dailyTargetSeconds = 2 * 3600; // 2 hours default
+    const progress = Math.min((todayFocusTime / dailyTargetSeconds) * 100, 100);
+    
+    document.getElementById('targetFill').style.width = `${progress}%`;
+    
+    const completedHours = Math.floor(todayFocusTime / 3600);
+    const completedMinutes = Math.floor((todayFocusTime % 3600) / 60);
+    document.getElementById('targetStatus').textContent = `${completedHours}h ${completedMinutes}m completed`;
+}
+
+// Update session statistics
+function updateSessionStats() {
+    document.getElementById('sessionsToday').textContent = sessionCount;
+    
+    const avgSeconds = sessionCount > 0 ? todayFocusTime / sessionCount : 0;
+    const avgMinutes = Math.floor(avgSeconds / 60);
+    document.getElementById('avgFocusTime').textContent = `${avgMinutes}m`;
+}
+
+// Update timer if user changes duration (from mode selection)
+document.getElementById('duration')?.addEventListener('change', () => {
+    const newDuration = parseInt(document.getElementById('duration').value);
+    if (newDuration && focusModes[currentMode]) {
+        focusModes[currentMode].duration = newDuration;
+        seconds = newDuration * 60;
+        document.getElementById('display').textContent = formatTime(seconds);
+    }
 });
 </script>
 
