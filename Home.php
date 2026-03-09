@@ -681,8 +681,8 @@ body {
                 Discover Yourself
             </a>
             <a href="campus life.php" class="nav-item">
-                <i class="fas fa-calendar"></i>
-                Campus Life
+                <i class="fas fa-map-marked-alt"></i>
+                Campus Navigation
             </a>
             <?php if(check_subscription($user, $pdo)): ?>
             <a href="Accomodation.php" class="nav-item">
@@ -691,7 +691,7 @@ body {
             </a>
             <a href="services.php" class="nav-item">
                 <i class="fas fa-store"></i>
-                Campus Services
+                Nearby Services
             </a>
             <a href="opportunities.php" class="nav-item">
                 <i class="fas fa-briefcase"></i>
@@ -699,11 +699,7 @@ body {
             </a>
             <a href="register.php" class="nav-item">
                 <i class="fas fa-user-graduate"></i>
-                AI Mentor
-            </a>
-            <a href="yaza_corner.php" class="nav-item">
-                <i class="fas fa-star"></i>
-                Yaza Corner
+                MentorMentee
             </a>
             <?php else: ?>
             <a href="#upgrade-section" class="nav-item">
@@ -713,7 +709,7 @@ body {
             </a>
             <a href="#upgrade-section" class="nav-item">
                 <i class="fas fa-store"></i>
-                Campus Services
+                Nearby Services
                 <span style="background: #64748b; color: white; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.625rem; margin-left: auto;">PRO</span>
             </a>
             <a href="#upgrade-section" class="nav-item">
@@ -723,7 +719,7 @@ body {
             </a>
             <a href="#upgrade-section" class="nav-item">
                 <i class="fas fa-user-graduate"></i>
-                AI Mentor
+                MentorMentee
                 <span style="background: #64748b; color: white; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.625rem; margin-left: auto;">PRO</span>
             </a>
             <a href="#upgrade-section" class="nav-item">
@@ -877,9 +873,8 @@ body {
                     <div class="plan-period">per month</div>
                     <ul class="plan-features">
                         <li>All basic tools</li>
-                        <li>Campus Services access</li>
-                        <li>Opportunities database</li>
-                        <li>AI Mentor matching</li>
+                        <li>Campus Navigation</li>
+                        <li>Nearby Services access</li>
                     </ul>
                     <div class="payment-wrapper">
                         <div id="wrapper"></div>
@@ -892,10 +887,11 @@ body {
                     <div class="plan-price">MWK 1,000</div>
                     <div class="plan-period">per month</div>
                     <ul class="plan-features">
-                        <li>Everything in Student</li>
-                        <li>Safe Accommodation</li>
-                        <li>Yaza Corner exclusive</li>
-                        <li>Priority support</li>
+                        <li>All basic tools</li>
+                        <li>Opportunities database</li>
+                        <li>MentorMentee matching</li>
+                        <li>Accommodation finder</li>
+                        <li>Yaza Corner access</li>
                     </ul>
                     <div class="payment-wrapper">
                         <div id="wrapper"></div>
@@ -941,11 +937,11 @@ body {
                 <div class="tool-card">
                     <div class="tool-header">
                         <div class="tool-icon">
-                            <i class="fas fa-calendar"></i>
+                            <i class="fas fa-map-marked-alt"></i>
                         </div>
                     </div>
-                    <h3 class="tool-title">Campus Life</h3>
-                    <p class="tool-description">Discover events, activities, and connect with fellow students.</p>
+                    <h3 class="tool-title">Campus Navigation</h3>
+                    <p class="tool-description">Navigate campus buildings, facilities, and find your way around easily.</p>
                     <div class="tool-footer">
                         <a href="campus life.php" class="tool-link">Open Tool →</a>
                     </div>
@@ -980,7 +976,7 @@ body {
                         <div class="tool-badge">PRO</div>
                         <?php endif; ?>
                     </div>
-                    <h3 class="tool-title">Campus Services</h3>
+                    <h3 class="tool-title">Nearby Services</h3>
                     <p class="tool-description">Directory of nearby hospitals, shops, banks, and facilities.</p>
                     <div class="tool-footer">
                         <?php if(check_subscription($user, $pdo)): ?>
@@ -1020,7 +1016,7 @@ body {
                         <div class="tool-badge">PRO</div>
                         <?php endif; ?>
                     </div>
-                    <h3 class="tool-title">AI Mentor Match</h3>
+                    <h3 class="tool-title">MentorMentee Match</h3>
                     <p class="tool-description">Connect with experienced students and alumni for guidance.</p>
                     <div class="tool-footer">
                         <?php if(check_subscription($user, $pdo)): ?>

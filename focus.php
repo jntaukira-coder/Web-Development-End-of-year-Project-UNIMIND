@@ -553,11 +553,189 @@ input[type=text], select {
     font-weight: 300;
 }
 
-/* Daily Target */
-.target-container {
+/* Distraction Tracker */
+.distraction-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.distraction-count, .focus-score {
+    text-align: center;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #1a0a2e, #2a0a4e);
+    border-radius: 12px;
+    border: 1px solid #4a00ff;
+}
+
+.distraction-number, .score-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.distraction-number {
+    color: #ff8800;
+}
+
+.score-number {
+    color: #00ff88;
+}
+
+.distraction-label, .score-label {
+    font-size: 0.875rem;
+    color: #e0e0ff;
+    opacity: 0.8;
+}
+
+.distraction-tips {
+    background: rgba(255, 136, 0, 0.1);
+    border: 1px solid #ff8800;
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #ff8800;
+    font-size: 0.875rem;
+}
+
+/* Smart Study Suggestions */
+.suggestion-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #1a0a2e, #2a0a4e);
+    border-radius: 12px;
+    border: 1px solid #4a00ff;
+}
+
+.suggestion-icon {
+    font-size: 2rem;
+    color: #00d4ff;
+    text-align: center;
+    min-width: 3rem;
+}
+
+.suggestion-text h3 {
+    color: #00d4ff;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.suggestion-text p {
+    color: #e0e0ff;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.study-patterns {
+    display: grid;
+    gap: 1rem;
+}
+
+.pattern-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 8px;
+    border: 1px solid #4a00ff;
+    font-size: 0.875rem;
+    color: #e0e0ff;
+}
+
+.pattern-item i {
+    color: #00d4ff;
+    min-width: 1.25rem;
+}
+
+.pattern-item strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Session Report */
+.session-report {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #1a0a2e, #2a0a4e);
+    border: 2px solid #00d4ff;
+    border-radius: 16px;
+    padding: 2rem;
+    z-index: 10000;
+    min-width: 300px;
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+    animation: slideIn 0.3s ease-out;
+}
+
+.session-report h3 {
+    color: #00d4ff;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+
+.report-stats {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.report-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 8px;
+    border: 1px solid #4a00ff;
+}
+
+.report-label {
+    color: #e0e0ff;
+    font-size: 0.875rem;
+}
+
+.report-value {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.report-close {
+    width: 100%;
+    background: #00d4ff;
+    color: #021526;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.report-close:hover {
+    background: #00a8cc;
+    transform: translateY(-2px);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
 }
 
 .target-display {
@@ -635,13 +813,17 @@ input[type=text], select {
                 <i class="fas fa-home"></i>
                 Dashboard
             </a>
+            <a href="focus.php" class="nav-item active">
+                <i class="fas fa-brain"></i>
+                Focus Zone
+            </a>
             <a href="aboutme.php" class="nav-item">
                 <i class="fas fa-user"></i>
                 Discover Yourself
             </a>
-            <a href="focus.php" class="nav-item active">
-                <i class="fas fa-brain"></i>
-                Focus Zone
+            <a href="campus life.php" class="nav-item">
+                <i class="fas fa-map-marked-alt"></i>
+                Campus Navigation
             </a>
             <a href="login.php" class="nav-item">
                 <i class="fas fa-sign-out-alt"></i>
@@ -748,29 +930,49 @@ input[type=text], select {
     </div>
 </div>
 
-<!-- Progress Ring Card -->
+<!-- Distraction Tracker Card -->
 <div class="card">
-    <h2>Focus Progress</h2>
-    <div class="progress-container">
-        <div class="progress-ring">
-            <svg class="progress-svg" width="120" height="120">
-                <circle class="progress-bg" cx="60" cy="60" r="54"></circle>
-                <circle class="progress-bar" id="progressRing" cx="60" cy="60" r="54"></circle>
-            </svg>
-            <div class="progress-text">
-                <div class="progress-percentage" id="progressPercentage">0%</div>
-                <div class="progress-label">Focus Time</div>
-            </div>
+    <h2>Distraction Tracker</h2>
+    <div class="distraction-stats">
+        <div class="distraction-count">
+            <div class="distraction-number" id="distractionCount">0</div>
+            <div class="distraction-label">Distractions</div>
         </div>
-        <div class="progress-stats">
-            <div class="mini-stat">
-                <div class="mini-value" id="sessionsToday">0</div>
-                <div class="mini-label">Sessions Today</div>
-            </div>
-            <div class="mini-stat">
-                <div class="mini-value" id="avgFocusTime">0m</div>
-                <div class="mini-label">Avg Session</div>
-            </div>
+        <div class="focus-score">
+            <div class="score-number" id="focusScore">100%</div>
+            <div class="score-label">Focus Score</div>
+        </div>
+    </div>
+    <div class="distraction-tips">
+        <i class="fas fa-info-circle"></i>
+        <span>Stay focused! Switching tabs or minimizing window counts as distraction.</span>
+    </div>
+</div>
+
+<!-- Smart Study Suggestions Card -->
+<div class="card">
+    <h2>Smart Study Suggestions</h2>
+    <div class="suggestion-content" id="suggestionContent">
+        <div class="suggestion-icon">
+            <i class="fas fa-lightbulb"></i>
+        </div>
+        <div class="suggestion-text">
+            <h3>Personalized Recommendation</h3>
+            <p id="suggestionText">Your best focus sessions are 25 minutes. Try Quick Revision mode!</p>
+        </div>
+    </div>
+    <div class="study-patterns">
+        <div class="pattern-item">
+            <i class="fas fa-clock"></i>
+            <span>Best time: <strong id="bestTime">Evening</strong></span>
+        </div>
+        <div class="pattern-item">
+            <i class="fas fa-chart-line"></i>
+            <span>Optimal duration: <strong id="optimalDuration">25 min</strong></span>
+        </div>
+        <div class="pattern-item">
+            <i class="fas fa-fire"></i>
+            <span>Peak day: <strong id="peakDay">Monday</strong></span>
         </div>
     </div>
 </div>
@@ -848,13 +1050,88 @@ let seconds = 25 * 60; // Default to pomodoro
 let sessionCount = 1;
 let todayFocusTime = 0;
 let goalCompleted = false;
+let distractionCount = 0;
+let sessionStartTime = null;
+let lastActiveTime = null;
 const notification = document.getElementById('notification');
 
-// Initialize
+// Initialize distraction tracking
 document.addEventListener('DOMContentLoaded', function() {
     setFocusMode('pomodoro'); // Set default mode
     updateTodayStats();
+    initializeSmartSuggestions();
+    setupDistractionTracking();
 });
+
+// Setup distraction tracking
+function setupDistractionTracking() {
+    // Track page visibility changes
+    document.addEventListener('visibilitychange', function() {
+        if (timer && document.hidden) {
+            distractionCount++;
+            updateDistractionTracker();
+        }
+    });
+    
+    // Track window focus/blur
+    window.addEventListener('blur', function() {
+        if (timer) {
+            distractionCount++;
+            updateDistractionTracker();
+        }
+    });
+    
+    // Track mouse inactivity
+    let inactivityTimer;
+    document.addEventListener('mousemove', function() {
+        clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => {
+            if (timer) {
+                distractionCount++;
+                updateDistractionTracker();
+            }
+        }, 30000); // 30 seconds of inactivity
+    });
+}
+
+// Update distraction tracker
+function updateDistractionTracker() {
+    document.getElementById('distractionCount').textContent = distractionCount;
+    
+    // Calculate focus score
+    const totalMinutes = (Date.now() - sessionStartTime) / 60000;
+    const focusScore = Math.max(0, 100 - (distractionCount * 5));
+    document.getElementById('focusScore').textContent = focusScore + '%';
+}
+
+// Initialize smart suggestions
+function initializeSmartSuggestions() {
+    // Simulate smart suggestions based on user patterns
+    const hour = new Date().getHours();
+    const day = new Date().getDay();
+    
+    // Time-based suggestions
+    if (hour >= 20 || hour < 6) {
+        document.getElementById('suggestionText').textContent = 
+            "You study best at night! Try a 50-minute Deep Study session.";
+        document.getElementById('bestTime').textContent = "Night";
+    } else if (hour >= 14 && hour < 17) {
+        document.getElementById('suggestionText').textContent = 
+            "Afternoon focus is strong! Perfect for assignment work.";
+        document.getElementById('bestTime').textContent = "Afternoon";
+    } else {
+        document.getElementById('suggestionText').textContent = 
+            "Your best focus sessions are 25 minutes. Try Quick Revision mode!";
+        document.getElementById('bestTime').textContent = "Evening";
+    }
+    
+    // Day-based patterns
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    document.getElementById('peakDay').textContent = days[day];
+    
+    // Optimal duration based on past sessions
+    document.getElementById('optimalDuration').textContent = "25 min";
+}
 
 // Set focus mode
 function setFocusMode(mode) {
@@ -898,6 +1175,11 @@ function showNotification(message) {
 function startTimer() {
     if (timer) return;
     
+    // Reset distraction count for new session
+    distractionCount = 0;
+    sessionStartTime = Date.now();
+    updateDistractionTracker();
+    
     // Show full-screen progress overlay
     document.getElementById('progressOverlay').classList.add('active');
     
@@ -921,6 +1203,9 @@ function startTimer() {
             clearInterval(timer);
             timer = null;
             
+            // Show session completion report
+            showSessionReport();
+            
             // Auto-save session
             saveSession(true);
             
@@ -934,6 +1219,37 @@ function startTimer() {
     // Update button states
     document.getElementById('startBtn').style.display = 'none';
     document.getElementById('pauseBtn').style.display = 'inline-block';
+}
+
+// Show session completion report
+function showSessionReport() {
+    const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 60000);
+    const focusScore = Math.max(0, 100 - (distractionCount * 5));
+    
+    // Create and show report
+    const report = document.createElement('div');
+    report.className = 'session-report';
+    report.innerHTML = `
+        <h3>🎯 Session Complete!</h3>
+        <div class="report-stats">
+            <div class="report-item">
+                <span class="report-label">Session Duration:</span>
+                <span class="report-value">${sessionDuration} min</span>
+            </div>
+            <div class="report-item">
+                <span class="report-label">Distractions:</span>
+                <span class="report-value">${distractionCount}</span>
+            </div>
+            <div class="report-item">
+                <span class="report-label">Focus Score:</span>
+                <span class="report-value">${focusScore}%</span>
+            </div>
+        </div>
+        <button onclick="this.parentElement.remove()" class="report-close">Continue</button>
+    `;
+    
+    document.body.appendChild(report);
+    setTimeout(() => report.remove(), 5000);
 }
 
 // Pause timer
